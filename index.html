@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Manager</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #f3f4f6;
+            --text: #1f2937;
+            --card: #ffffff;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1, h2 { margin-bottom: 1rem; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .form-group { margin-bottom: 1rem; }
+        
+        label { 
+            display: block; 
+            font-size: 0.875rem; 
+            font-weight: 600; 
+            margin-bottom: 0.25rem; 
+        }
+
+        input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+
+        .book-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .book-info h3 { margin: 0 0 0.25rem 0; font-size: 1.1rem; }
+        .book-info p { margin: 0; color: #6b7280; font-size: 0.9rem; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+        .status-available { background: #d1fae5; color: #065f46; }
+        .status-out { background: #fee2e2; color: #991b1b; }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-borrow { background-color: var(--primary); }
+        .btn-return { background-color: var(--success); }
+        
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📚 Library Management System</h1>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Add New Book</h2>
+            <form id="addBookForm">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="title" required>
+                </div>
+                <div class="form-group">
+                    <label>Author</label>
+                    <input type="text" id="author" required>
+                </div>
+                <div class="form-group">
+                    <label>ISBN</label>
+                    <input type="text" id="isbn" required>
+                </div>
+                <div class="form-group">
+                    <label>Total Copies</label>
+                    <input type="number" id="copies" min="1" value="5" required>
+                </div>
+                <button type="submit">Add Book</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <input type="text" id="searchInput" placeholder="Search by title or author..." oninput="searchBooks()">
+            </div>
+            
+            <div id="bookList">
+                <p style="color: #6b7280;">Loading library...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api/books';
+
+        async function fetchBooks(query = '') {
+            const list = document.getElementById('bookList');
+            try {
+                const res = await fetch(`${API_URL}?q=${query}`);
+                const books = await res.json();
+
+                list.innerHTML = books.map(book => {
+                    const isAvailable = book.availableCopies > 0;
+                    const isFull = book.availableCopies === book.totalCopies;
+
+                    return `
+                    <div class="book-item">
+                        <div class="book-info">
+                            <h3>${book.title}</h3>
+                            <p>by ${book.author} | ISBN: ${book.isbn}</p>
+                            <span class="status-badge ${isAvailable ? 'status-available' : 'status-out'}">
+                                ${book.availableCopies} / ${book.totalCopies} Available
+                            </span>
+                        </div>
+                        <div class="actions">
+                            <button 
+                                class="btn-borrow" 
+                                onclick="borrowBook('${book._id}')" 
+                                ${!isAvailable ? 'disabled' : ''}>
+                                Borrow
+                            </button>
+                            <button 
+                                class="btn-return" 
+                                onclick="returnBook('${book._id}')"
+                                ${isFull ? 'disabled' : ''}>
+                                Return
+                            </button>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+                
+                if (books.length === 0) list.innerHTML = '<p>No books found.</p>';
+
+            } catch (err) {
+                list.innerHTML = '<p style="color:red">Error connecting to server. Is it running?</p>';
+            }
+        }
+
+        document.getElementById('addBookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                title: document.getElementById('title').value,
+                author: document.getElementById('author').value,
+                isbn: document.getElementById('isbn').value,
+                totalCopies: Number(document.getElementById('copies').value)
+            };
+
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            e.target.reset();
+            fetchBooks();
+        });
+
+
+        async function borrowBook(id) {
+            const res = await fetch(`${API_URL}/${id}/borrow`, { method: 'POST' });
+            if (res.ok) fetchBooks();
+            else alert("Error borrowing book");
+        }
+
+
+        async function returnBook(id) {
+            const res = await fetch(`${API_URL}/${id}/return`, { method: 'POST' });
+            if (res.ok) fetchBooks(); 
+            else alert("Error returning book");
+        }
+
+        function searchBooks() {
+            const query = document.getElementById('searchInput').value;
+            fetchBooks(query);
+        }
+
+        fetchBooks();
+    </script>
+</body>
+</html>
