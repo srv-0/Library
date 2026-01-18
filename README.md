@@ -1,5 +1,6 @@
 #  Library Management System API
 
+![Project Screenshot](https://via.placeholder.com/600x400)
 A backend system designed to manage library book inventories and borrowing workflows. This project implements complex business logic for stock management, search optimization using database indexing, and robust error handling.
 
 > **Current Status:** MVP Complete (Backend API + Admin Dashboard)
